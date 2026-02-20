@@ -1,40 +1,48 @@
 import { GameMode, PlayerGameModeChangeBeforeEvent, PlayerSpawnAfterEvent, system, world } from "@minecraft/server";
 import { get } from "../util/database";
+
+let isEnabled = false;
+
 export function enableAntiGameMode() {
-    if (world.antiGamemodeEnabled) return;
-    world.antiGamemodeEnabled = true;
+    if (isEnabled) return;
+    isEnabled = true;
     world.beforeEvents.playerGameModeChange.subscribe(gamemodeChange);
     world.afterEvents.playerSpawn.subscribe(onJoin);
 }
+
 export function disableAntiGameMode() {
-    if (!world.antiGamemodeEnabled) return;
-    delete world.antiGamemodeEnabled;
+    if (!isEnabled) return;
+    isEnabled = false;
     world.beforeEvents.playerGameModeChange.unsubscribe(gamemodeChange);
     world.afterEvents.playerSpawn.unsubscribe(onJoin);
 }
+
 function gamemodeChange(event: PlayerGameModeChangeBeforeEvent) {
     if (event.player.isOp()) return;
+    let block = false;
     switch (event.toGameMode) {
         case GameMode.Adventure: {
-            if (get("antiGma")) event.cancel = true;
+            if (get("antiGma")) block = true;
             break;
         }
         case GameMode.Creative: {
-            if (get("antiGmc")) event.cancel = true;
+            if (get("antiGmc")) block = true;
             break;
         }
         case GameMode.Spectator: {
-            if (get("antiGmsp")) event.cancel = true;
+            if (get("antiGmsp")) block = true;
             break;
         }
         case GameMode.Survival: {
-            if (get("antiGms")) event.cancel = true;
+            if (get("antiGms")) block = true;
         }
     }
-    if (event.cancel) {
-        system.run(() => event.player.setGameMode());
+    if (block) {
+        event.cancel = true;
+        system.run(() => event.player.setGameMode(GameMode.Survival));
     }
 }
+
 function onJoin({ player, initialSpawn }: PlayerSpawnAfterEvent) {
     if (!initialSpawn || player.isOp()) return;
     let reset = false;
@@ -56,6 +64,6 @@ function onJoin({ player, initialSpawn }: PlayerSpawnAfterEvent) {
         }
     }
     if (reset) {
-        player.setGameMode();
+        player.setGameMode(GameMode.Survival);
     }
 }
